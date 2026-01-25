@@ -95,8 +95,8 @@
                             <li><a href="{{ route('admin.master.category.index') }}">category</a></li>
                             <li><a href="{{ route('admin.master.sub-category.index') }}">Sub Category</a></li>
                             <li><a href="{{ route('admin.master.staff.index') }}">Users</a></li>
-                                  <li><a href="knowledge-detail.html">Users</a></li>
-                                        <li><a href="knowledge-detail.html">Pwa users</a></li>
+                                  <li><a href="{{ route('admin.master.complaints.index') }}">Complaints</a></li>
+                                        <li><a href="{{ route('admin.master.public.index') }}">Pwa users</a></li>
 
                         </ul>
                     </li>

@@ -2,44 +2,53 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ComplaintUpdate extends Model
 {
-    use HasFactory;
-
-    /**
-     * Mass assignable fields
-     */
     protected $fillable = [
         'complaint_id',
-        'staff_id',
-        'status',
+        'acted_by_user_id',
+        'action_type',
+        'old_status',
+        'new_status',
         'remarks',
         'images',
+        'is_public',
     ];
 
-    /**
-     * Attribute casting
-     */
     protected $casts = [
-        'images' => 'array', // JSON → PHP array
+        'images'     => 'array',
+        'is_public'  => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    /**
-     * Relationship: This update belongs to a complaint
-     */
-    public function complaint()
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    public function complaint(): BelongsTo
     {
         return $this->belongsTo(Complaint::class);
     }
 
-    /**
-     * Relationship: This update was made by a staff user
-     */
-    public function staff()
+    public function actedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'staff_id');
+        return $this->belongsTo(User::class, 'acted_by_user_id');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopePublic($query)
+    {
+        return $query->where('is_public', true);
     }
 }

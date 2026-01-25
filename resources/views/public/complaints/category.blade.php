@@ -61,7 +61,7 @@
         @forelse($categories as $category)
             <div class="col-6 {{ $loop->odd ? 'pe-2' : 'ps-2' }} mb-3">
                 {{-- Variable $category is safely defined inside this loop --}}
-                <a href="{{ route('complaints.sub_category', ['category_id' => $category->id]) }}" class="category-link">
+                <a href="{{ route('public.complaints.sub_category', ['category_id' => $category->id]) }}" class="category-link">
                     <div class="card category-card h-100 shadow-xl">
                         <div class="center-text">
                             <div class="round-img-wrapper shadow-sm">

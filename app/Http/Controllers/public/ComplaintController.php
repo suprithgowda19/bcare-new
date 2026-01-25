@@ -6,72 +6,108 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Complaint;
+use App\Models\ComplaintUpdate;
+use App\Services\WorkflowResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+// Laravel 12 Compatibility Imports
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class ComplaintController extends Controller
+class ComplaintController extends Controller implements HasMiddleware
 {
+    use AuthorizesRequests;
+
     /**
-     * Page 1: My Complaints List
-     * Shows the current status of each complaint.
+     * Define middleware for Laravel 12 controllers.
      */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('auth'),
+            new Middleware('role:public'),
+        ];
+    }
+
+    public function __construct()
+    {
+        // Manual authorization check is used in methods instead of authorizeResource
+        // to prevent compatibility issues with slimmed-down base controllers.
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | My Complaints
+    |--------------------------------------------------------------------------
+    */
+
     public function index()
     {
         $complaints = Complaint::where('user_id', auth()->id())
             ->with(['category', 'subcategory'])
             ->latest()
-            ->paginate(10); // Changed to paginate for better PWA performance
+            ->paginate(10);
 
         return view('public.complaints.index', compact('complaints'));
     }
 
-    /**
-     * NEW: View single complaint details and timeline
-     * This allows the citizen to see history/remarks from staff.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | View Single Complaint
+    |--------------------------------------------------------------------------
+    */
+
     public function show(Complaint $complaint)
     {
-        // Security: Ensure users can only see their own complaints
-        if ($complaint->user_id !== auth()->id()) {
-            abort(403, 'Unauthorized action.');
-        }
+        // Manual Authorization Check
+        $this->authorize('view', $complaint);
 
-        // Load the complaint with its category and the update history (timeline)
         $complaint->load([
             'category',
             'subcategory',
             'ward',
             'updates' => function ($query) {
-                $query->latest(); // Show newest staff updates first
+                $query->where('is_public', true)
+                      ->latest();
             },
-            'updates.staff:id,name' // Load the name of the staff who made the update
+            'updates.actedBy:id,name'
         ]);
 
         return view('public.complaints.show', compact('complaint'));
     }
 
-    /**
-     * Step 1: Display Category selection
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Step 1 – Select Category
+    |--------------------------------------------------------------------------
+    */
+
     public function category()
     {
         $categories = Category::where('status', 'active')->get();
         return view('public.complaints.category', compact('categories'));
     }
 
-    /**
-     * Step 2: Display Sub-Category selection
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Step 2 – Select Sub Category
+    |--------------------------------------------------------------------------
+    */
+
     public function sub_category(Request $request)
     {
         $categoryId = $request->query('category_id');
 
         if (!$categoryId) {
-            return redirect()->route('complaints.category');
+            return redirect()
+                ->route('public.complaints.category')
+                ->with('error', 'Category selection is required.');
         }
 
         $category = Category::findOrFail($categoryId);
+
         $sub_categories = SubCategory::where('category_id', $categoryId)
             ->where('status', 'active')
             ->get();
@@ -79,16 +115,21 @@ class ComplaintController extends Controller
         return view('public.complaints.sub_category', compact('category', 'sub_categories'));
     }
 
-    /**
-     * Step 3: Display the Final Registration Form
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Step 3 – Complaint Form
+    |--------------------------------------------------------------------------
+    */
+
     public function create(Request $request)
     {
         $categoryId = $request->query('category_id');
         $subCategoryId = $request->query('sub_category_id');
 
         if (!$categoryId || !$subCategoryId) {
-            return redirect()->route('complaints.category');
+            return redirect()
+                ->route('public.complaints.category')
+                ->with('error', 'Please select category and subcategory.');
         }
 
         $category = Category::findOrFail($categoryId);
@@ -97,9 +138,12 @@ class ComplaintController extends Controller
         return view('public.complaints.create', compact('category', 'subcategory'));
     }
 
-    /**
-     * FINAL ACTION: Detect Ward and Store Complaint
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Store Complaint
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request)
     {
         $request->validate([
@@ -112,95 +156,126 @@ class ComplaintController extends Controller
             'latitude'       => 'required|numeric',
             'longitude'      => 'required|numeric',
             'image.*'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ], [
+            'latitude.required'  => 'Location access is required.',
+            'longitude.required' => 'Location access is required.',
+            'priority.in'        => 'Invalid priority selected.',
         ]);
 
         $lat = $request->latitude;
         $lng = $request->longitude;
 
-        // Spatial Ward Detection
+        // Detect Ward using spatial query
         $ward = DB::table('wards')
             ->select('id', 'name')
             ->where('status', 1)
-            ->whereRaw("ST_Contains(geom, ST_PointFromText(CONCAT('POINT(', ?, ' ', ?, ')')))", [$lng, $lat])
+            ->whereRaw(
+                "ST_Contains(geom, ST_PointFromText(CONCAT('POINT(', ?, ' ', ?, ')')))",
+                [$lng, $lat]
+            )
             ->first();
 
         if (!$ward) {
-            return back()->withInput()->with('error', 'ಒದಗಿಸಿದ ಸ್ಥಳವು ಯಾವುದೇ ವಾರ್ಡ್ ಮಿತಿಯಲ್ಲಿ ಕಂಡುಬಂದಿಲ್ಲ. (Location not found within service area).');
+            return back()
+                ->withInput()
+                ->with('error', 'Location not within serviceable ward boundary.');
         }
 
         $imagePaths = [];
+
         if ($request->hasFile('image')) {
             foreach ($request->file('image') as $file) {
-                $path = $file->store('complaints', 'public');
-                $imagePaths[] = $path;
+                $imagePaths[] = $file->store('complaints', 'public');
             }
         }
 
-        Complaint::create([
-            'user_id'        => auth()->id(),
-            'ward_id'        => $ward->id,
-            'category_id'    => $request->category_id,
-            'subcategory_id' => $request->subcategory_id,
-            'subject'        => $request->subject,
-            'message'        => $request->message,
-            'address'        => $request->address,
-            'priority'       => $request->priority,
-            'latitude'       => $lat,
-            'longitude'      => $lng,
-            'images'         => $imagePaths,
-            'status'         => 'new',
-        ]);
+        try {
 
-        return redirect()->route('complaints.index')
-            ->with('success', "ದೂರು ಸಲ್ಲಿಸಲಾಗಿದೆ! (Complaint filed in Ward: {$ward->name})");
+            DB::transaction(function () use ($request, $ward, $imagePaths, $lat, $lng) {
+
+                $complaint = Complaint::create([
+                    'user_id'        => auth()->id(),
+                    'ward_id'        => $ward->id,
+                    'category_id'    => $request->category_id,
+                    'subcategory_id' => $request->subcategory_id,
+                    'subject'        => $request->subject,
+                    'message'        => $request->message,
+                    'address'        => $request->address,
+                    'priority'       => $request->priority,
+                    'latitude'       => $lat,
+                    'longitude'      => $lng,
+                    'images'         => $imagePaths,
+                    'status'         => 'pending',
+                ]);
+
+                // Attach workflow (CRITICAL)
+                app(WorkflowResolver::class)
+                    ->attachWorkflow($complaint);
+
+                // Initial timeline entry
+                ComplaintUpdate::create([
+                    'complaint_id'     => $complaint->id,
+                    'acted_by_user_id' => auth()->id(),
+                    'action_type'      => 'comment',
+                    'remarks'          => 'Complaint submitted.',
+                    'is_public'        => true,
+                ]);
+            });
+
+        } catch (\Throwable $e) {
+
+            Log::error('Complaint creation failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->with('error', 'Something went wrong while submitting your complaint.');
+        }
+
+        return redirect()
+            ->route('public.complaints.index')
+            ->with('success', "Complaint submitted successfully in Ward: {$ward->name}");
     }
 
-    /**
-     * Page: Complaints Report
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Report
+    |--------------------------------------------------------------------------
+    */
+
     public function report(Request $request)
     {
-        // Check if the request is AJAX or expects JSON
-        if ($request->ajax() || $request->wantsJson()) {
-            try {
-                $query = Complaint::where('user_id', auth()->id());
+        if ($request->wantsJson() || $request->ajax()) {
 
-                // 1. Date Filtering Logic
-                if ($request->filled('fromdate')) {
-                    $query->whereDate('created_at', '>=', $request->fromdate);
-                }
+            $query = Complaint::where('user_id', auth()->id())
+                ->with('category:id,name')
+                ->latest();
 
-                if ($request->filled('todate')) {
-                    $query->whereDate('created_at', '<=', $request->todate);
-                }
-
-                // 2. Eager Load category and use get()
-                // We use 'category:id,name' to be memory efficient
-                $complaints = $query->with(['category:id,name'])->latest()->get();
-
-                // 3. Map data for JSON response
-                // Inside your report method...
-                $data = $complaints->map(function ($item, $key) {
-                    return [
-                        'sl_no'     => $key + 1,
-                        'ticket_id' => 'SP-' . $item->id,
-                        'category'  => $item->category->name ?? 'General',
-                        'status'    => ucfirst(str_replace('-', ' ', $item->status ?? 'New')),
-                        // CHANGE THIS LINE: Ensure 'complaints.show' is defined in web.php
-                        'url'       => route('complaints.show', $item->id),
-                    ];
-                });
-                return response()->json(['data' => $data], 200);
-            } catch (\Exception $e) {
-                // Return actual error message for easier debugging in the Browser Console
-                return response()->json([
-                    'error' => 'Internal Server Error',
-                    'message' => $e->getMessage()
-                ], 500);
+            if ($request->filled('fromdate')) {
+                $query->whereDate('created_at', '>=', $request->fromdate);
             }
+
+            if ($request->filled('todate')) {
+                $query->whereDate('created_at', '<=', $request->todate);
+            }
+
+            $complaints = $query->get();
+
+            $data = $complaints->values()->map(function ($item, $index) {
+                return [
+                    'sl_no'     => $index + 1,
+                    'ticket_id' => 'SP-' . $item->id,
+                    'category'  => $item->category->name ?? 'General',
+                    'priority'  => ucfirst($item->priority),
+                    'status'    => ucfirst(str_replace('_', ' ', $item->status)),
+                    'url'       => route('public.complaints.show', $item->id),
+                ];
+            });
+
+            return response()->json(['data' => $data]);
         }
 
-        // Standard page load
         return view('public.complaints.report');
     }
 }

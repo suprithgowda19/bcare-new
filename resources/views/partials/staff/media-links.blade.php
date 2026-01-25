@@ -30,7 +30,7 @@
             </div>
 
             <div class="col-6 ps-0 text-center">
-                <img src="/pwa/images/mla.png"
+                <img src="{{ asset('pwa/images/mla.png') }}" 
                      class="rounded-sm mx-auto mt-1"
                      width="170"
                      height="170"

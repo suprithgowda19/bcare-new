@@ -10,8 +10,9 @@
     <style>
         .table>:not(caption)>*>* {
             border: 1px solid #00000038 !important;
-            font-size: 14px !important;
+            font-size: 13px !important;
         }
+        .bg-resolved { background-color: #28a745 !important; }
     </style>
 @endsection
 
@@ -22,38 +23,38 @@
 
         <table class="table table-borderless text-center rounded-sm shadow-l">
             <thead>
-                <tr style="background-color:#e45b44 !important;" class="text-white">
+                <tr class="bg-resolved text-white">
                     <th>Sl No.</th>
                     <th>Ticket ID</th>
                     <th>Category</th>
                     <th>Ward</th>
                     <th>Resolved On</th>
-                    <th>Action</th>
+                    <th>View</th>
                 </tr>
             </thead>
 
             <tbody>
                 @forelse($complaints as $complaint)
                     <tr>
-                        {{-- Serial Number with Pagination --}}
+                        {{-- Handle both Collection and Paginator for safety --}}
                         <td>
-                            {{ ($complaints->currentPage() - 1) * $complaints->perPage() + $loop->iteration }}
+                            @if($complaints instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                                {{ ($complaints->currentPage() - 1) * $complaints->perPage() + $loop->iteration }}
+                            @else
+                                {{ $loop->iteration }}
+                            @endif
                         </td>
 
-                        <td class="font-700">
-                            SP-{{ $complaint->id }}
-                        </td>
+                        <td class="font-700">SP-{{ $complaint->id }}</td>
+
+                        <td>{{ $complaint->category->name ?? 'General' }}</td>
+
+                        <td>{{ $complaint->ward->name ?? '-' }}</td>
 
                         <td>
-                            {{ $complaint->category->name ?? '-' }}
-                        </td>
-
-                        <td>
-                            {{ $complaint->ward->name ?? '-' }}
-                        </td>
-
-                        <td>
-                            {{ $complaint->updated_at->format('d M Y') }}
+                            <span class="color-green-dark font-700">
+                                {{ $complaint->updated_at->format('d M y') }}
+                            </span>
                         </td>
 
                         <td>
@@ -67,16 +68,17 @@
                 @empty
                     <tr>
                         <td colspan="6" class="py-4 opacity-50">
-                            No resolved complaints found.
+                            No resolved complaints found in your jurisdiction.
                         </td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
 
-        {{-- ✅ SAME PAGINATION PARTIAL AS DASHBOARD --}}
-        @if ($complaints->hasPages())
-            {{ $complaints->links('partials.pagination') }}
+        @if (method_exists($complaints, 'links') && $complaints->hasPages())
+            <div class="mt-3">
+                {{ $complaints->links('partials.pagination') }}
+            </div>
         @endif
 
     </div>

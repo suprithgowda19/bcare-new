@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -16,8 +19,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'category_id',
-        'sub_category_id',
+        'designation_id',
         'zone',
         'constituency',
         'status',
@@ -36,32 +38,52 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Mandatory category
-     */
-    public function category()
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    // Staff specialization
+    public function designation(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Designation::class);
     }
 
-    /**
-     * Optional sub-category
-     */
-    public function subCategory()
-    {
-        return $this->belongsTo(SubCategory::class);
-    }
-
-    /**
-     * Staff ↔ Wards (PIVOT TABLE)
-     */
-    public function wards()
+    // Jurisdiction (ward-based access control)
+    public function wards(): BelongsToMany
     {
         return $this->belongsToMany(
             Ward::class,
-            'staff_ward_assignments',
-            'staff_id',
+            'user_wards',   // MUST match pivot table name
+            'user_id',
             'ward_id'
         );
+    }
+
+    // Complaints raised by citizen
+    public function complaints(): HasMany
+    {
+        return $this->hasMany(Complaint::class);
+    }
+
+    // Complaint updates performed by this user
+    public function complaintUpdates(): HasMany
+    {
+        return $this->hasMany(ComplaintUpdate::class, 'acted_by_user_id');
+    }
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->hasRole('staff');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
     }
 }

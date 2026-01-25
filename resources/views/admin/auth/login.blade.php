@@ -13,80 +13,115 @@
     <style>
         body {
             margin: 0; padding: 0;
-            /* Animated background gif asset */
-            background: url("{{ asset('assets/video/original-background.gif') }}") no-repeat center center fixed;
+            /* Using a fallback color in case the gif doesn't load */
+            background: #f4f7fb url("{{ asset('assets/video/original-background.gif') }}") no-repeat center center fixed;
             background-size: cover;
         }
-        .login-card { min-height: 100vh; display: flex; align-items: center; }
-        .theme-form { max-width: 850px; }
+        /* Proper centering logic */
+        .login-card-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+        }
+        .login-main {
+            width: 100%;
+            max-width: 900px;
+            background: #fff;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .login-logo-section {
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        .login-form-section {
+            padding: 50px 40px;
+        }
+        .input-group-text {
+            background-color: #f8f9fa;
+            border-right: none;
+        }
+        .form-control {
+            border-left: none;
+        }
+        .form-control:focus {
+            box-shadow: none;
+            border-color: #dee2e6;
+        }
+        @media (max-width: 991px) {
+            .login-logo-section {
+                border-bottom: 1px solid #eee;
+                padding: 30px;
+            }
+            .login-form-section {
+                padding: 30px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="page-body-wrapper">
-        <div class="container-fluid">
-            <div class="row m-0">
-                <div class="col-lg-12 col-sm-12">
-                    <div class="login-card p-3">
-                        <div class="theme-form col-md-9 p-4 shadow" style="background:white; border:1px solid #00000047; border-radius:10px; margin:auto;">
-                            <div class="d-flex row align-items-center">
-                                
-                                <div class="col-lg-6 col-12 mb-3 border-end">
-                                    <div class="d-flex flex-column gap-1 align-items-center justify-content-center text-center">
-                                        <img src="{{ asset('assets/images/BBMPlogo.png') }}" width="25%" alt="Logo">
-                                        <h3 class="text-dark fw-bold mt-2">B care</h3>
-                                        <p class="text-muted">Administrator Portal</p>
-                                        <img src="{{ asset('assets/images/logo/logo-icon.jpg') }}" width="15%" alt="Icon">
+    <div class="container-fluid p-0">
+        <div class="login-card-wrapper">
+            <div class="login-main shadow-lg">
+                <div class="row m-0 h-100">
+                    
+                    <div class="col-lg-6 col-12 login-logo-section">
+                        <div class="text-center">
+                            <img src="{{ asset('assets/images/bjp.png') }}" class="img-fluid" style="max-width: 450px;" alt="Logo">
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6 col-12 login-form-section">
+                        <div>
+                            <h4 class="text-center mb-1" style="color:#2a1570; font-weight: 700;">Admin Login</h4>
+                            <p class="text-center text-muted mb-4 small">Enter your credentials to access the portal</p>
+
+                            <form class="theme-form" method="POST" action="{{ route('admin.login.submit') }}">
+                                @csrf
+
+                                <div class="mb-3">
+                                    <label class="form-label font-weight-600">Email Address</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-envelope text-muted"></i></span>
+                                        <input class="form-control @error('email') is-invalid @enderror" 
+                                               type="email" name="email" value="{{ old('email') }}" 
+                                               required autofocus placeholder="admin@example.com">
                                     </div>
+                                    @error('email')
+                                        <div class="text-danger small mt-1"><strong>{{ $message }}</strong></div>
+                                    @enderror
                                 </div>
 
-                                <div class="col-lg-6 col-12">
-                                    <h4 class="text-center mb-4" style="color:#2a1570;">Admin Login</h4>
-
-                                    <form class="theme-form login-form" method="POST" action="{{ route('admin.login.submit') }}">
-                                        @csrf
-
-                                        <div class="form-group mb-3">
-                                            <label class="form-label">Email Address</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-                                                <input class="form-control @error('email') is-invalid @enderror" 
-                                                       type="email" name="email" value="{{ old('email') }}" 
-                                                       required autofocus placeholder="admin@example.com">
-                                                
-                                                @error('email')
-                                                    <span class="invalid-feedback d-block"><strong>{{ $message }}</strong></span>
-                                                @enderror
-                                            </div>
-                                        </div>
-
-                                        <div class="form-group mb-3">
-                                            <label class="form-label">Password</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
-                                                <input id="password" class="form-control @error('password') is-invalid @enderror" 
-                                                       type="password" name="password" required placeholder="*********">
-                                                
-                                                <span class="input-group-text" onclick="togglePassword()" style="background: #f8f9fa;">
-                                                    <i id="toggleIcon" class="fa-solid fa-eye-slash" style="cursor:pointer;"></i>
-                                                </span>
-
-                                                @error('password')
-                                                    <span class="invalid-feedback d-block"><strong>{{ $message }}</strong></span>
-                                                @enderror
-                                            </div>
-                                        </div>
-
-                                        <div class="form-group mt-4">
-                                            <button class="btn btn-primary btn-block w-100 py-2 fw-bold" type="submit">
-                                                Sign in to Portal
-                                            </button>
-                                        </div>
-                                    </form>
+                                <div class="mb-4">
+                                    <label class="form-label font-weight-600">Password</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fa-solid fa-lock text-muted"></i></span>
+                                        <input id="password" class="form-control @error('password') is-invalid @enderror" 
+                                               type="password" name="password" required placeholder="*********">
+                                        <span class="input-group-text py-0" style="cursor: pointer;" onclick="togglePassword()">
+                                            <i id="toggleIcon" class="fa-solid fa-eye-slash font-14"></i>
+                                        </span>
+                                    </div>
+                                    @error('password')
+                                        <div class="text-danger small mt-1"><strong>{{ $message }}</strong></div>
+                                    @enderror
                                 </div>
 
-                            </div>
+                                <div class="form-group">
+                                    <button class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" type="submit" style="background:#2a1570; border:none;">
+                                        Sign in to Portal
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

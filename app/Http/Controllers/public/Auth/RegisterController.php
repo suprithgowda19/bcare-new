@@ -51,6 +51,6 @@ class RegisterController extends Controller
         Auth::login($user);
 
         // 5. Redirect to Dashboard or Category Selection
-        return redirect()->route('complaints.category')->with('success', 'ನೋಂದಣಿ ಯಶಸ್ವಿಯಾಗಿದೆ!');
+        return redirect()->route('public.complaints.category')->with('success', 'ನೋಂದಣಿ ಯಶಸ್ವಿಯಾಗಿದೆ!');
     }
 }

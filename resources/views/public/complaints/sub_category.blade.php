@@ -3,7 +3,7 @@
 {{-- 1. Perfectly Aligned Navbar Content --}}
 {{-- Pushes the title and back link to your layout's navbar partial --}}
 @section('nav_title', 'ಉಪವರ್ಗಗಳು')
-@section('back_url', route('complaints.category'))
+@section('back_url', route('public.complaints.category'))
 @section('title', 'Select Sub-Category - ಉಪವರ್ಗಗಳು')
 
 @push('styles')
@@ -70,7 +70,7 @@
         @forelse($sub_categories as $sub)
             <div class="col-6 {{ $loop->odd ? 'pe-2' : 'ps-2' }} mb-3">
                 {{-- Link to Page 3: Final Complaint Form --}}
-                <a href="{{ route('complaints.create', ['category_id' => $category->id, 'sub_category_id' => $sub->id]) }}" class="sub-link">
+                <a href="{{ route('public.complaints.create', ['category_id' => $category->id, 'sub_category_id' => $sub->id]) }}" class="sub-link">
                     <div class="card sub-category-card h-100 shadow-xl">
                         <div class="center-text">
                             <div class="sub-img-wrapper shadow-sm">

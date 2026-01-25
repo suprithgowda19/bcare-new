@@ -2,78 +2,110 @@
 
 namespace App\Policies;
 
-use App\Models\Complaint;
 use App\Models\User;
+use App\Models\Complaint;
+use App\Models\WorkflowStep;
 
 class ComplaintPolicy
 {
-    /**
-     * Determine whether the staff can view a complaint.
-     *
-     * Rule:
-     * - Staff must be assigned to the complaint's ward
-     */
-    public function view(User $staff, Complaint $complaint): bool
+    /*
+    |--------------------------------------------------------------------------
+    | View Any
+    |--------------------------------------------------------------------------
+    */
+
+    public function viewAny(User $user): bool
     {
-        return $this->staffOwnsWard($staff, $complaint);
+        return true;
     }
 
-    /**
-     * Determine whether the staff can update a complaint
-     * (classification, priority, metadata).
-     *
-     * Rule:
-     * - Staff must own the ward
-     * - Resolved complaints are immutable
-     */
-    public function update(User $staff, Complaint $complaint): bool
+    /*
+    |--------------------------------------------------------------------------
+    | View Single Complaint
+    |--------------------------------------------------------------------------
+    */
+
+    public function view(User $user, Complaint $complaint): bool
     {
-        if ($complaint->status === 'resolved') {
-            return false;
+        // Admin can see everything
+        if ($user->hasRole('admin')) {
+            return true;
         }
 
-        return $this->staffOwnsWard($staff, $complaint);
-    }
-
-    /**
-     * Determine whether the staff can update complaint status.
-     *
-     * Rule:
-     * - Staff must own the ward
-     * - Resolved complaints cannot be changed
-     */
-    public function updateStatus(User $staff, Complaint $complaint): bool
-    {
-        if ($complaint->status === 'resolved') {
-            return false;
+        // Public can see only their own complaints
+        if ($user->hasRole('public')) {
+            return $complaint->user_id === $user->id;
         }
 
-        return $this->staffOwnsWard($staff, $complaint);
+        // Staff logic
+        if ($user->hasRole('staff') && $user->status === 'active') {
+
+            // Must belong to same ward
+            if (! $user->wards()->where('ward_id', $complaint->ward_id)->exists()) {
+                return false;
+            }
+
+            // Must have workflow
+            if (! $complaint->workflow_id || ! $complaint->currentStep) {
+                return false;
+            }
+
+            // Get staff step inside workflow
+            $staffStep = WorkflowStep::where('workflow_id', $complaint->workflow_id)
+                ->where('designation_id', $user->designation_id)
+                ->first();
+
+            if (! $staffStep) {
+                return false; // Staff not part of this workflow
+            }
+
+            // Progressive visibility:
+            // Staff can see if complaint has reached or passed their step
+            return $complaint->currentStep->step_number >= $staffStep->step_number;
+        }
+
+        return false;
     }
 
-    /**
-     * Determine whether the staff can view complaint history.
-     *
-     * Rule:
-     * - Same as view permission
-     */
-    public function viewHistory(User $staff, Complaint $complaint): bool
+    /*
+    |--------------------------------------------------------------------------
+    | Update (Act / Push Step)
+    |--------------------------------------------------------------------------
+    */
+
+    public function update(User $user, Complaint $complaint): bool
     {
-        return $this->view($staff, $complaint);
+        // Admin override
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        if ($user->hasRole('staff') && $user->status === 'active') {
+
+            if (! $complaint->currentStep) {
+                return false;
+            }
+
+            // Must belong to ward
+            if (! $user->wards()->where('ward_id', $complaint->ward_id)->exists()) {
+                return false;
+            }
+
+            // Only current step designation can act
+            return $complaint->currentStep->designation_id === $user->designation_id;
+        }
+
+        return false;
     }
 
-    /**
-     * Centralized ward ownership check.
-     *
-     * IMPORTANT:
-     * - Uses EXISTS query (DB-level check)
-     * - No pluck(), no arrays, no PHP loops
-     * - Scales correctly with thousands of wards
-     */
-    protected function staffOwnsWard(User $staff, Complaint $complaint): bool
+    /*
+    |--------------------------------------------------------------------------
+    | Delete
+    |--------------------------------------------------------------------------
+    */
+
+    public function delete(User $user, Complaint $complaint): bool
     {
-        return $staff->wards()
-            ->whereKey($complaint->ward_id)
-            ->exists();
+        return $user->hasRole('admin');
     }
 }

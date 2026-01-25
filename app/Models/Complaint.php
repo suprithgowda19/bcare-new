@@ -2,20 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Complaint extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'user_id',
-        'category_id',
         'ward_id',
+        'category_id',
         'subcategory_id',
+
+        'workflow_id',
+        'current_step_id',
+
         'subject',
         'message',
         'address',
@@ -24,50 +25,86 @@ class Complaint extends Model
         'longitude',
         'images',
         'status',
+        'resolved_at',
     ];
 
     protected $casts = [
-        'images' => 'array', 
+        'images'      => 'array',
+        'resolved_at' => 'datetime',
+        'due_at'      => 'datetime',
     ];
 
-    /**
-     * Get the citizen who filed the complaint.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the category that the complaint belongs to.
-     */
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(Category::class);
-    }
-
-    /**
-     * Get the subcategory. 
-     * Note: Renamed to subCategory (camelCase) to match Controller eager loading.
-     */
-    public function subCategory(): BelongsTo
-    {
-        return $this->belongsTo(SubCategory::class, 'subcategory_id');
-    }
-
-    /**
-     * Get the ward where the complaint is located.
-     */
     public function ward(): BelongsTo
     {
         return $this->belongsTo(Ward::class);
     }
 
-    /**
-     * Get the timeline of updates for this complaint.
-     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function subcategory(): BelongsTo
+    {
+        return $this->belongsTo(SubCategory::class);
+    }
+
+    public function workflow(): BelongsTo
+    {
+        return $this->belongsTo(Workflow::class);
+    }
+
+    public function currentStep(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowStep::class, 'current_step_id');
+    }
+
     public function updates(): HasMany
     {
-        return $this->hasMany(ComplaintUpdate::class);
+        return $this->hasMany(ComplaintUpdate::class)
+                    ->orderBy('created_at', 'asc');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeInProgress($query)
+    {
+        return $query->where('status', 'in_progress');
+    }
+
+    public function scopeResolved($query)
+    {
+        return $query->where('status', 'resolved');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Basic Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function isResolved(): bool
+    {
+        return $this->status === 'resolved';
     }
 }

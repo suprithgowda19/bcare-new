@@ -34,7 +34,7 @@
          class="menu menu-box-right menu-box-detached rounded-m"
          data-menu-width="260"
          data-menu-effect="menu-over">
-        @include('partials.staff.sidebar')
+        @include('partials.public.sidebar')
     </div>
 
     <div class="page-content mx-3">

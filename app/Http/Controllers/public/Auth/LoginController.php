@@ -27,7 +27,7 @@ class LoginController extends Controller
 
         // 2. Attempt Login
         if (Auth::attempt(['phone' => $request->phone, 'password' => $request->password, 'status' => 'active'])) {
-            
+
             $user = Auth::user();
 
             // 3. Spatie Role Check
@@ -44,5 +44,15 @@ class LoginController extends Controller
         return back()->withErrors([
             'phone' => 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಥವಾ ಸಂಕೇತ ಪದ ತಪ್ಪಾಗಿದೆ.',
         ])->withInput();
+    }
+    public function logout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('public.login')
+            ->with('success', 'Logged out successfully.');
     }
 }

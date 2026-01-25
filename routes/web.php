@@ -28,15 +28,19 @@ use App\Http\Controllers\Public\Auth\RegisterController;
 use App\Http\Controllers\Public\HomeController;
 use App\Http\Controllers\Public\ComplaintController;
 use App\Http\Controllers\Staff\ComplaintUpdateController;
-
+use App\Http\Controllers\Admin\Master\AdminComplaintController;
+use App\Http\Controllers\Admin\Master\PublicController;
+use App\Http\Controllers\Admin\Master\DesignationController;
+use App\Http\Controllers\Admin\Master\WorkflowController;
 /*
 |--------------------------------------------------------------------------
 | Public Landing & Default Auth
 |--------------------------------------------------------------------------
 */
+
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('complaints.index'); // public index/dashboard
+        return redirect()->route('public.complaints.index'); // public index/dashboard
     }
 
     return redirect()->route('public.login');
@@ -68,14 +72,51 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::resource('schemes', SchemeController::class);
 
     Route::prefix('master')->name('master.')->group(function () {
+
+        /* --- 1. STAFF & DESIGNATION AJAX (Specific Routes First) --- */
+
+        // This fixes the "Designation Load Error"
+        // Route::get('workflows/get-designations', [WorkflowController::class, 'getEligibleDesignations'])
+        //     ->name('workflows.get-eligible-designations');
+
+        // These fix the "Route [admin.master.get-constituencies] not defined"
+        Route::get('get-sub-categories', [StaffController::class, 'getSubCategories'])->name('staff.get-subcategories');
+        Route::get('get-zones', [StaffController::class, 'getZones'])->name('staff.get-zones');
+        Route::get('get-constituencies', [StaffController::class, 'getConstituencies'])->name('staff.get-constituencies');
+        Route::get('get-wards', [StaffController::class, 'getWards'])->name('staff.get-wards');
+
+         Route::get('staff/get-designations', [StaffController::class, 'getEligibleDesignations'])
+    ->name('staff.get-eligible-designations'); // This exactly matches what your Blade expects
+
+Route::get('get-sub-categories', [StaffController::class, 'getSubCategories'])->name('staff.get-subcategories');
+        /* --- 2. WORKFLOW AJAX --- */
+
+   Route::get('workflows/get-designations', [WorkflowController::class, 'getEligibleDesignations'])
+    ->name('workflows.get-eligible-designations');
+        Route::get('workflows/get-subcategories', [WorkflowController::class, 'getSubCategories'])
+            ->name('workflows.get-subcategories');
+
+        Route::get('designations/get-subcategories', [DesignationController::class, 'getSubCategories'])
+            ->name('designations.get-subcategories');
+
+
+        /* --- 3. RESOURCE ROUTES (Wildcards Last) --- */
+
         Route::resource('category', CategoryController::class);
         Route::resource('sub-category', SubCategoryController::class);
+        Route::resource('designations', DesignationController::class);
         Route::resource('staff', StaffController::class);
+        Route::resource('workflows', WorkflowController::class);
 
-        Route::get('get-sub-categories', [StaffController::class, 'getSubCategories'])->name('get-sub-categories');
-        Route::get('get-zones', [StaffController::class, 'getZones'])->name('get-zones');
-        Route::get('get-constituencies', [StaffController::class, 'getConstituencies'])->name('get-constituencies');
-        Route::get('get-wards', [StaffController::class, 'getWards'])->name('get-wards');
+
+        /* --- 4. COMPLAINTS & USERS --- */
+
+        Route::get('complaints', [AdminComplaintController::class, 'index'])->name('complaints.index');
+        Route::get('complaints/flagged', [AdminComplaintController::class, 'flagged'])->name('complaints.flagged');
+        Route::get('complaints/{complaint}', [AdminComplaintController::class, 'show'])->name('complaints.show');
+
+        Route::get('public-users', [PublicController::class, 'index'])->name('public.index');
+        Route::get('public-users/{user}', [PublicController::class, 'show'])->name('public.show');
     });
 });
 
@@ -100,32 +141,24 @@ Route::prefix('staff')->name('staff.')->group(function () {
     Route::middleware(['auth', 'role:staff'])->group(function () {
 
         // Dashboard (Active / Assigned Complaints)
-        Route::get('/dashboard', [ComplaintUpdateController::class, 'index'])
+           Route::get('/dashboard', [ComplaintUpdateController::class, 'index'])
             ->name('dashboard');
 
-        // Complaints
-        Route::prefix('complaints')->name('complaints.')->group(function () {
+        // View Complaint
+        Route::get('/complaints/{complaint}', [ComplaintUpdateController::class, 'show'])
+            ->name('complaints.show');
 
-            // ✅ Solved / Resolved Complaints (NEW)
-            Route::get('/solved', [ComplaintUpdateController::class, 'solvedComplaints'])
-                ->name('solved');
+        // Push to Next Step
+        Route::post('/complaints/{complaint}/push', [ComplaintUpdateController::class, 'push'])
+            ->name('complaints.push');
 
-            // Complaint Details
-            Route::get('/{complaint}', [ComplaintUpdateController::class, 'show'])
-                ->name('show');
+        // Add Comment
+        Route::post('/complaints/{complaint}/comment', [ComplaintUpdateController::class, 'comment'])
+            ->name('complaints.comment');
 
-            // Edit Classification / Priority
-            Route::get('/{complaint}/edit', [ComplaintUpdateController::class, 'edit'])
-                ->name('edit');
-
-            // Update Classification / Priority
-            Route::put('/{complaint}', [ComplaintUpdateController::class, 'update'])
-                ->name('update');
-
-            // Status Update with Remarks / Images
-            Route::post('/{complaint}/status', [ComplaintUpdateController::class, 'updateStatus'])
-                ->name('status');
-        });
+        // Resolved Complaints
+        Route::get('/complaints/solved', [ComplaintUpdateController::class, 'solvedComplaints'])
+            ->name('complaints.solved');
     });
 });
 
@@ -135,7 +168,7 @@ Route::prefix('staff')->name('staff.')->group(function () {
 | Public Citizen Portal & Auth
 |--------------------------------------------------------------------------
 */
-Route::get('/home', [HomeController::class, 'index'])->name('public.home');
+
 
 Route::prefix('public')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('public.register');
@@ -145,14 +178,17 @@ Route::prefix('public')->group(function () {
     Route::post('/logout', [PublicLoginController::class, 'logout'])->name('public.logout');
 });
 
-Route::middleware(['auth', 'role:public'])->prefix('complaints')->name('complaints.')->group(function () {
+Route::get('/home', [HomeController::class, 'index'])->name('public.home')->middleware(['auth', 'role:public']);
+Route::get('/news', [HomeController::class, 'news'])->name('public.news')->middleware(['auth', 'role:public']);
+
+Route::middleware(['auth', 'role:public'])->prefix('public/complaints')->name('public.complaints.')->group(function () {
     Route::get('/', [ComplaintController::class, 'index'])->name('index');
     Route::get('/category', [ComplaintController::class, 'category'])->name('category');
     Route::get('/sub_category', [ComplaintController::class, 'sub_category'])->name('sub_category');
     Route::get('/new', [ComplaintController::class, 'create'])->name('create');
     Route::post('/store', [ComplaintController::class, 'store'])->name('store');
     Route::get('/report', [ComplaintController::class, 'report'])->name('report');
-    
+
     // FIXED: Removed the extra 'complaints.' from name because it's already in the group name
     Route::get('/view/{complaint}', [ComplaintController::class, 'show'])->name('show');
 });

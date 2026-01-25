@@ -62,7 +62,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('staff.login')
+        return redirect()->route('staff.auth.login')
             ->with('info', 'Logged out successfully.');
     }
 }

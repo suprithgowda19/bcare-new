@@ -30,12 +30,12 @@
     <div class="content mt-0">
         <div class="row">
             <div class="col-6">
-                <a href="{{ route('complaints.category') }}"
+                <a href="{{ route('public.complaints.category') }}"
                     class="btn btn-full btn-m rounded-s text-uppercase font-900 shadow-xl bg-highlight">ದೂರನ್ನು
                     ನೋಂದಾಯಿಸಿ</a>
             </div>
             <div class="col-6">
-                <a href="{{ route('complaints.index') }}" class="btn btn-full btn-m rounded-s text-uppercase font-900 shadow-xl bg-highlight">ನನ್ನ
+                <a href="{{ route('public.complaints.index') }}" class="btn btn-full btn-m rounded-s text-uppercase font-900 shadow-xl bg-highlight">ನನ್ನ
                     ದೂರುಗಳು</a>
             </div>
         </div>
@@ -140,21 +140,11 @@
                     class="ms-4 far fa-clock"></i> 12:00 am</p>
             <p class="color-white ms-3 font-10 opacity-80"><i class="fa fa-map-marker-alt"></i> ಬಸವನಗುಡಿ</p>
         </div>
-        <div class="card-bottom pb-3 pe-4">
-            <div class="float-end">
-                <p class="font-12 color-white opacity-60 mb-1">Sri Basavaraj Bommai and 2 more attending</p>
-                <img class="shadow-xl rounded-xl float-end ms-n2" width="45" height="45"
-                    src="https://bcare.org.in//public/uploads/events/637cad87039c3202211221107511BasavarajBommai.jpg">
-                <img class="shadow-xl rounded-xl float-end ms-n2" width="45" height="45"
-                    src="https://bcare.org.in//public/uploads/events/637cad8703a5c202211221107512ravi.jfif">
-                <img class="shadow-xl rounded-xl float-end ms-n2" width="45" height="45"
-                    src="https://bcare.org.in//public/uploads/events/637cad8703aee202211221107513Tejasvi_Surya.jpg">
-            </div>
-        </div>
+      
         <div class="card-overlay bg-highlight opacity-90"></div>
     </div>
 
-    <div class="card preload-img mt-4" data-src="https://bcare.org.in/public/images/pictures/20s.jpg">
+    <div class="card preload-img mt-4" >
     <div class="card-body">
         <h4 class="color-white text-center">ಅಂಕಿ ಅಂಶಗಳು</h4>
         <div class="card card-style ms-0 me-0 bg-theme">

@@ -31,10 +31,16 @@ class HomeController extends Controller
          $services= Service::where('status', 'active')->latest()->take(6)->get();
          $abouts= About::where('status', 'active')->latest()->take(6)->get();
          $schemes= Scheme::where('status', 'active')->latest()->take(6)->get();
+        
         // 2. You can add more dynamic data here later (News, Events, etc.)
         // $news = News::where('status', 1)->latest()->take(6)->get();
 
         // 3. Return the home view with the data
         return view('public.home', compact('banners', 'news', 'activities', 'updates', 'contents', 'services', 'abouts', 'schemes'));
+    }
+    public function news()
+    {
+        $news= News::where('status', 'active')->latest()->take(6)->get();
+        return view('public.news', compact('news'));
     }
 }
